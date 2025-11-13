@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{{title}}</title>
+    <style>
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin: 24px; }
+      pre { background: #0f172a; color: #e6edf3; padding: 16px; border-radius: 8px; overflow: auto; }
+      header { margin-bottom: 16px; }
+      h1 { font-size: 20px; margin: 0 0 8px 0; }
+      .meta { color: #6b7280; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>{{title}}</h1>
+      <div class="meta">Read-only configuration loaded from <code>config/amargo.yaml</code></div>
+    </header>
+
+    <main>
+      <pre>{{configJson}}</pre>
+    </main>
+  </body>
+</html>

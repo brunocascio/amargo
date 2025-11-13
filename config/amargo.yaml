@@ -1,0 +1,80 @@
+server:
+  port: 3000
+  host: "0.0.0.0"
+  # Enable HTTP cache headers
+  cache:
+    enabled: true
+    maxAge: 3600 # 1 hour default
+
+database:
+  url: "${DATABASE_URL}"
+
+storage:
+  # Default storage provider
+  default: "s3"
+  
+  providers:
+    s3:
+      type: "s3"
+      endpoint: "${S3_ENDPOINT}"
+      accessKey: "${S3_ACCESS_KEY}"
+      secretKey: "${S3_SECRET_KEY}"
+      bucket: "${S3_BUCKET}"
+      region: "${S3_REGION:-us-east-1}"
+      forcePathStyle: ${S3_FORCE_PATH_STYLE:-false}
+    
+    gcs:
+      type: "gcs"
+      keyFile: "${GCS_KEY_FILE}"
+      bucket: "${GCS_BUCKET}"
+    
+    azure:
+      type: "azure"
+      connectionString: "${AZURE_STORAGE_CONNECTION_STRING}"
+      container: "${AZURE_CONTAINER}"
+
+repositories:
+  npm:
+    type: "npm"
+    enabled: true
+    upstream: "https://registry.npmjs.org"
+    cacheTtl: 3600 # 1 hour
+    path: "/npm"
+    
+  pypi:
+    type: "pypi"  
+    enabled: true
+    upstream: "https://pypi.org"
+    cacheTtl: 7200 # 2 hours
+    path: "/pypi"
+    
+  docker:
+    type: "docker"
+    enabled: true
+    upstream: "https://registry-1.docker.io"
+    cacheTtl: 1800 # 30 minutes
+    path: "/v2"
+
+cache:
+  # Global cache settings
+  cleanupInterval: 3600 # 1 hour
+  maxSize: "100GB" # Per repository
+  
+  # Repository-specific overrides
+  repositories:
+    docker:
+      maxSize: "500GB" # Docker images are larger
+      
+logging:
+  level: "info"
+  format: "json"
+  
+admin:
+  ui:
+    enabled: true
+    path: "/admin"
+    title: "Amargo - Artifact Repository Manager"
+    
+  metrics:
+    enabled: true
+    path: "/metrics"

@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Repository {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  type          RepositoryType
+  description   String?
+  upstreamUrl   String?  // For pull-through cache
+  isProxyEnabled Boolean @default(false)
+  cacheTtl      Int      @default(3600) // TTL in seconds, default 1 hour
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  artifacts     Artifact[]
+  storageConfig StorageConfig?
+
+  @@map("repositories")
+}
+
+model Artifact {
+  id           String   @id @default(cuid())
+  repositoryId String
+  name         String
+  version      String
+  path         String   // Storage path/key
+  size         BigInt
+  checksum     String   // SHA256 or similar
+  contentType  String
+  metadata     Json?    // Package-specific metadata
+  cacheTtl     Int?     // Override repository TTL if set
+  lastAccessed DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, name, version])
+  @@index([repositoryId, name])
+  @@index([lastAccessed])
+  @@map("artifacts")
+}
+
+model StorageConfig {
+  id           String      @id @default(cuid())
+  repositoryId String      @unique
+  provider     StorageProvider
+  config       Json        // Provider-specific configuration
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@map("storage_configs")
+}
+
+model CacheEntry {
+  id           String   @id @default(cuid())
+  key          String   @unique  // Cache key (repository + artifact identifier)
+  repositoryId String
+  artifactPath String
+  expiresAt    DateTime
+  metadata     Json?    // Additional cache metadata
+  createdAt    DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([repositoryId])
+  @@map("cache_entries")
+}
+
+model DownloadStats {
+  id           String   @id @default(cuid())
+  repositoryId String
+  artifactName String
+  artifactVersion String
+  downloadDate DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+
+  @@index([repositoryId, downloadDate])
+  @@index([artifactName, downloadDate])
+  @@map("download_stats")
+}
+
+enum RepositoryType {
+  NPM
+  PYPI
+  DOCKER
+  MAVEN
+  NUGET
+  GENERIC
+}
+
+enum StorageProvider {
+  S3
+  GCS
+  AZURE_BLOB
+  LOCAL
+}
