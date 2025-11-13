@@ -55,20 +55,71 @@ export class NpmController {
   }
 
   /**
-   * Proxy package metadata
-   * GET /npm/:package
+   * Proxy package metadata (unscoped or encoded scoped)
+   * Examples:
+   *  - /npm/express
+   *  - /npm/@scope%2Fpkg
    */
-  @Get(':package')
-  async getPackageMetadata(
-    @Param('package') packageName: string,
+  @Get(':pkg')
+  async getPackageMetadataUnscoped(
+    @Param('pkg') pkgParam: string,
     @Res() res: Response,
   ) {
+    return this.handlePackageMetadata(pkgParam, res);
+  }
+
+  /**
+   * Proxy package metadata (scoped, unencoded)
+   * Example: /npm/@scope/pkg
+   */
+  @Get(':scope/:pkg')
+  async getPackageMetadataScoped(
+    @Param('scope') scope: string,
+    @Param('pkg') pkg: string,
+    @Res() res: Response,
+  ) {
+    const fullName = `${scope}/${pkg}`;
+    return this.handlePackageMetadata(fullName, res);
+  }
+
+  /**
+   * Proxy package tarball with pull-through caching
+   * Unscoped or encoded scoped: /npm/:pkg/-/:filename (pkg may be '@scope%2Fname' or 'name')
+   */
+  @Get(':pkg/-/:filename')
+  async getPackageTarballUnscoped(
+    @Param('pkg') pkgParam: string,
+    @Param('filename') filename: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const packageName = this.normalizePackageName(pkgParam);
+    return this.handlePackageTarball(packageName, filename, req, res);
+  }
+
+  /**
+   * Proxy package tarball with pull-through caching (scoped, unencoded)
+   * Example: /npm/@scope/pkg/-/:filename
+   */
+  @Get(':scope/:pkg/-/:filename')
+  async getPackageTarballScoped(
+    @Param('scope') scope: string,
+    @Param('pkg') pkg: string,
+    @Param('filename') filename: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const packageName = `${scope}/${pkg}`;
+    return this.handlePackageTarball(packageName, filename, req, res);
+  }
+
+  private async handlePackageMetadata(pkgParam: string, res: Response) {
+    const packageName = this.normalizePackageName(pkgParam);
     try {
       this.logger.debug(`Fetching metadata for package: ${packageName}`);
 
-      // For now, always fetch from upstream (metadata is lightweight)
-      // In production, you might want to cache this too
-      const response = await fetch(`${this.upstreamUrl}/${packageName}`);
+      const upstreamPath = this.encodePackagePath(packageName);
+      const response = await fetch(`${this.upstreamUrl}/${upstreamPath}`);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -79,28 +130,25 @@ export class NpmController {
         );
       }
 
-      const metadata = await response.json();
+  const metadata = (await response.json()) as unknown;
 
-      // Set cache headers
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
       res.json(metadata);
     } catch (error) {
-      this.logger.error(`Failed to fetch package metadata: ${packageName}`, error);
+      this.logger.error(
+        `Failed to fetch package metadata: ${packageName}`,
+        error,
+      );
       throw error;
     }
   }
 
-  /**
-   * Proxy package tarball with pull-through caching
-   * GET /npm/:package/-/:filename
-   */
-  @Get(':package/-/:filename')
-  async getPackageTarball(
-    @Param('package') packageName: string,
-    @Param('filename') filename: string,
-    @Req() req: Request,
-    @Res() res: Response,
+  private async handlePackageTarball(
+    packageName: string,
+    filename: string,
+    req: Request,
+    res: Response,
   ) {
     try {
       // Extract version from filename (e.g., "package-1.0.0.tgz" -> "1.0.0")
@@ -113,7 +161,9 @@ export class NpmController {
       this.logger.debug(`Fetching tarball: ${packageName}@${version}`);
 
       if (!this.repositoryId) {
-        throw new InternalServerErrorException('NPM repository not initialized');
+        throw new InternalServerErrorException(
+          'NPM repository not initialized',
+        );
       }
 
       // Check if we have it cached
@@ -135,7 +185,9 @@ export class NpmController {
             req.ip,
             req.get('user-agent'),
           )
-          .catch((error) => this.logger.error('Failed to record download:', error));
+          .catch((error) =>
+            this.logger.error('Failed to record download:', error),
+          );
 
         // Set response headers
         res.setHeader('Content-Type', cached.artifact.contentType);
@@ -152,7 +204,9 @@ export class NpmController {
       // Cache MISS - fetch from upstream
       this.logger.debug(`Cache MISS: ${packageName}@${version}`);
 
-      const upstreamTarballUrl = `${this.upstreamUrl}/${packageName}/-/${filename}`;
+      const upstreamTarballUrl = `${this.upstreamUrl}/${this.encodePackagePath(
+        packageName,
+      )}/-/${filename}`;
       const upstreamResponse = await fetch(upstreamTarballUrl);
 
       if (!upstreamResponse.ok) {
@@ -169,6 +223,8 @@ export class NpmController {
       }
 
       // Convert Web Streams ReadableStream to Node Readable
+      // Convert Web stream to Node stream
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const nodeStream = Readable.fromWeb(upstreamResponse.body as any);
 
       // Store in cache (fire and forget the response to client separately)
@@ -187,7 +243,9 @@ export class NpmController {
           name: packageName,
           version,
           stream: storageStream,
-          contentType: upstreamResponse.headers.get('content-type') || 'application/octet-stream',
+          contentType:
+            upstreamResponse.headers.get('content-type') ||
+            'application/octet-stream',
           metadata: {
             filename,
             source: 'npm-upstream',
@@ -197,13 +255,17 @@ export class NpmController {
           this.logger.log(`Cached ${packageName}@${version}`);
         })
         .catch((error) => {
-          this.logger.error(`Failed to cache ${packageName}@${version}:`, error);
+          this.logger.error(
+            `Failed to cache ${packageName}@${version}:`,
+            error,
+          );
         });
 
       // Stream to client immediately
       res.setHeader(
         'Content-Type',
-        upstreamResponse.headers.get('content-type') || 'application/octet-stream',
+        upstreamResponse.headers.get('content-type') ||
+          'application/octet-stream',
       );
       const contentLength = upstreamResponse.headers.get('content-length');
       if (contentLength) {
@@ -240,5 +302,25 @@ export class NpmController {
     }
     
     return null;
+  }
+
+  /**
+   * Normalize a package name parameter that may be encoded (e.g., '@scope%2Fname')
+   * into a standard name with slash (e.g., '@scope/name').
+   */
+  private normalizePackageName(param: string): string {
+    // If already contains a slash, return as is
+    if (param.includes('/')) return param;
+    // Decode %2F to '/'
+    return param.replace(/%2F/gi, '/');
+  }
+
+  /**
+   * Encode a package path for upstream requests.
+   * Keep '@' but encode '/' as '%2F'. If it's already encoded, leave as is.
+   */
+  private encodePackagePath(name: string): string {
+    if (/%2F/i.test(name)) return name; // already encoded
+    return name.replace(/\//g, '%2F');
   }
 }
