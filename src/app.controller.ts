@@ -16,6 +16,9 @@ export class AppController {
         admin: '/admin',
         npm: '/npm/:package',
         npmTarball: '/npm/:package/-/:filename',
+        dockerV2: '/v2/',
+        dockerManifest: '/v2/:name/manifests/:reference',
+        dockerBlob: '/v2/:name/blobs/:digest',
       },
       documentation: 'See AMARGO_README.md and QUICKSTART.md',
     };
