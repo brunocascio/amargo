@@ -40,7 +40,15 @@ export class ArtifactService {
    * Store an artifact in storage and create metadata record
    */
   async storeArtifact(options: StoreArtifactOptions): Promise<ArtifactInfo> {
-    const { repositoryId, name, version, stream, contentType, metadata, cacheTtl } = options;
+    const {
+      repositoryId,
+      name,
+      version,
+      stream,
+      contentType,
+      metadata,
+      cacheTtl,
+    } = options;
 
     // Generate storage path
     const repository = await this.prisma.repository.findUnique({
@@ -51,7 +59,11 @@ export class ArtifactService {
       throw new NotFoundException(`Repository ${repositoryId} not found`);
     }
 
-    const storagePath = this.generateStoragePath(repository.name, name, version);
+    const storagePath = this.generateStoragePath(
+      repository.name,
+      name,
+      version,
+    );
 
     // Calculate checksum while streaming to storage
     const { size, checksum } = await this.storeWithChecksum(
@@ -134,7 +146,9 @@ export class ArtifactService {
         where: { id: artifact.id },
         data: { lastAccessed: new Date() },
       })
-      .catch((error) => this.logger.error('Failed to update lastAccessed:', error));
+      .catch((error) =>
+        this.logger.error('Failed to update lastAccessed:', error),
+      );
 
     // Get stream from storage
     const adapter = this.storage.getDefaultAdapter();

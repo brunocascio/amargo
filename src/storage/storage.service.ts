@@ -44,7 +44,10 @@ export class StorageService {
 
         this.logger.log(`Initialized storage adapter: ${name}`);
       } catch (error) {
-        this.logger.error(`Failed to initialize storage adapter ${name}:`, error);
+        this.logger.error(
+          `Failed to initialize storage adapter ${name}:`,
+          error,
+        );
       }
     }
 

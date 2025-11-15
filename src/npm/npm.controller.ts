@@ -32,7 +32,7 @@ export class NpmController {
   async onModuleInit() {
     // Ensure npm repository exists in database
     const npmConfig = this.configService.getRepository('npm');
-    
+
     let repository = await this.prisma.repository.findUnique({
       where: { name: 'npm' },
     });
@@ -41,7 +41,8 @@ export class NpmController {
       repository = await this.prisma.repository.create({
         data: {
           name: 'npm',
-          type: 'NPM',
+          type: 'PROXY',
+          format: 'NPM',
           description: 'NPM package registry',
           upstreamUrl: this.upstreamUrl,
           isProxyEnabled: true,
@@ -130,7 +131,7 @@ export class NpmController {
         );
       }
 
-  const metadata = (await response.json()) as unknown;
+      const metadata = (await response.json()) as unknown;
 
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
@@ -291,16 +292,16 @@ export class NpmController {
   ): string | null {
     // Remove .tgz extension
     const withoutExt = filename.replace(/\.tgz$/, '');
-    
+
     // Remove package name prefix
     // Handle scoped packages: @scope/package-1.0.0 -> 1.0.0
     const cleanPackageName = packageName.replace(/^@[^/]+\//, '');
     const prefix = `${cleanPackageName}-`;
-    
+
     if (withoutExt.startsWith(prefix)) {
       return withoutExt.substring(prefix.length);
     }
-    
+
     return null;
   }
 

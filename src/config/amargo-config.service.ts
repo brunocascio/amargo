@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService as NestConfigService } from '@nestjs/config';
 import { load } from 'js-yaml';
 import { readFileSync } from 'fs';
@@ -18,11 +18,24 @@ export interface StorageProviderConfig {
 }
 
 export interface RepositoryConfig {
-  type: 'npm' | 'pypi' | 'docker' | 'maven' | 'nuget' | 'generic';
+  format: 'npm' | 'pypi' | 'docker' | 'maven' | 'nuget' | 'generic';
+  type: 'hosted' | 'proxy' | 'group';
   enabled: boolean;
   upstream?: string;
   cacheTtl: number;
   path: string;
+}
+
+export interface GroupMemberConfig {
+  name: string;
+  priority: number;
+}
+
+export interface RepositoryGroupConfig {
+  format: 'npm' | 'pypi' | 'docker' | 'maven' | 'nuget' | 'generic';
+  enabled: boolean;
+  path: string;
+  members: GroupMemberConfig[];
 }
 
 export interface AmargoConfig {
@@ -42,6 +55,7 @@ export interface AmargoConfig {
     providers: Record<string, StorageProviderConfig>;
   };
   repositories: Record<string, RepositoryConfig>;
+  groups?: Record<string, RepositoryGroupConfig>;
   cache: {
     cleanupInterval: number;
     maxSize: string;
@@ -76,16 +90,17 @@ export class AmargoConfigService {
     try {
       const configPath = join(process.cwd(), 'config', 'amargo.yaml');
       const fileContents = readFileSync(configPath, 'utf8');
-      
+
       // Replace environment variables in YAML
       const processedContent = this.replaceEnvVars(fileContents);
-      
+
       this.config = load(processedContent) as AmargoConfig;
-      
+
       // Validate configuration
       this.validateConfig();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to load configuration: ${errorMessage}`);
     }
   }
@@ -103,11 +118,11 @@ export class AmargoConfigService {
     if (!this.config.server?.port) {
       throw new Error('Server port is required in configuration');
     }
-    
+
     if (!this.config.storage?.default) {
       throw new Error('Default storage provider is required in configuration');
     }
-    
+
     if (!this.config.storage.providers?.[this.config.storage.default]) {
       throw new Error(
         `Storage provider '${this.config.storage.default}' is not configured`,
@@ -130,11 +145,11 @@ export class AmargoConfigService {
   getStorageProvider(name?: string): StorageProviderConfig {
     const providerName = name || this.config.storage.default;
     const provider = this.config.storage.providers[providerName];
-    
+
     if (!provider) {
       throw new Error(`Storage provider '${providerName}' not found`);
     }
-    
+
     return provider;
   }
 
@@ -148,6 +163,14 @@ export class AmargoConfigService {
       throw new Error(`Repository '${name}' not found in configuration`);
     }
     return repo;
+  }
+
+  getGroups(): Record<string, RepositoryGroupConfig> {
+    return this.config.groups || {};
+  }
+
+  getGroup(name: string): RepositoryGroupConfig | undefined {
+    return this.config.groups?.[name];
   }
 
   getCache() {
@@ -171,6 +194,8 @@ export class AmargoConfigService {
 
   // Method to get configuration as readonly object for UI
   getReadOnlyConfig(): Readonly<AmargoConfig> {
-    return Object.freeze(JSON.parse(JSON.stringify(this.config))) as AmargoConfig;
+    return Object.freeze(
+      JSON.parse(JSON.stringify(this.config)),
+    ) as AmargoConfig;
   }
 }

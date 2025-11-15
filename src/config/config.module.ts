@@ -3,7 +3,12 @@ import { ConfigModule } from '@nestjs/config';
 import { AmargoConfigService } from './amargo-config.service';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '.env.example'] })],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '.env.example'],
+    }),
+  ],
   providers: [AmargoConfigService],
   exports: [AmargoConfigService],
 })

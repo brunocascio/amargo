@@ -79,7 +79,9 @@ export class CacheCleanupService implements OnModuleInit {
               where: { id: artifact.id },
             });
 
-            this.logger.debug(`Cleaned up artifact: ${artifact.name}@${artifact.version}`);
+            this.logger.debug(
+              `Cleaned up artifact: ${artifact.name}@${artifact.version}`,
+            );
           } else {
             // Orphaned cache entry, delete it
             await this.prisma.cacheEntry.delete({
@@ -91,7 +93,9 @@ export class CacheCleanupService implements OnModuleInit {
         }
       }
 
-      this.logger.log(`Cache cleanup completed (${expiredEntries.length} entries cleaned)`);
+      this.logger.log(
+        `Cache cleanup completed (${expiredEntries.length} entries cleaned)`,
+      );
     } catch (error) {
       this.logger.error('Failed to cleanup expired cache:', error);
       throw error;

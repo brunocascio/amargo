@@ -26,38 +26,50 @@ export class DockerController {
   private readonly logger = new Logger(DockerController.name);
   private upstreamUrl: string;
   private repositoryId: string | null = null;
+  private dockerGroupId: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly artifactService: ArtifactService,
     private readonly configService: AmargoConfigService,
   ) {
-    const dockerConfig = this.configService.getRepository('docker');
+    const dockerConfig = this.configService.getRepository('docker-proxy');
     this.upstreamUrl = dockerConfig.upstream || 'https://registry-1.docker.io';
   }
 
   async onModuleInit() {
-    const dockerConfig = this.configService.getRepository('docker');
+    const dockerConfig = this.configService.getRepository('docker-proxy');
 
     let repository = await this.prisma.repository.findUnique({
-      where: { name: 'docker' },
+      where: { name: 'docker-proxy' },
     });
 
     if (!repository) {
       repository = await this.prisma.repository.create({
         data: {
-          name: 'docker',
-          type: 'DOCKER',
-          description: 'Docker container registry',
+          name: 'docker-proxy',
+          type: 'PROXY',
+          format: 'DOCKER',
+          description: 'Docker container registry proxy',
           upstreamUrl: this.upstreamUrl,
           isProxyEnabled: true,
           cacheTtl: dockerConfig.cacheTtl,
         },
       });
-      this.logger.log('Created docker repository in database');
+      this.logger.log('Created docker-proxy repository in database');
     }
 
     this.repositoryId = repository.id;
+
+    // Load docker group for group lookups
+    const dockerGroup = await this.prisma.repositoryGroup.findUnique({
+      where: { name: 'docker' },
+    });
+
+    if (dockerGroup) {
+      this.dockerGroupId = dockerGroup.id;
+      this.logger.log('Docker group enabled for fallback lookups');
+    }
   }
 
   /**
@@ -85,8 +97,17 @@ export class DockerController {
     @Res() res: Response,
   ) {
     // imagePath comes as array from wildcard, join it back to string
-    const fullImagePath = Array.isArray(imagePath) ? imagePath.join('/') : imagePath;
-    return this.handleManifest('GET', fullImagePath, reference, accept, req, res);
+    const fullImagePath = Array.isArray(imagePath)
+      ? imagePath.join('/')
+      : imagePath;
+    return this.handleManifest(
+      'GET',
+      fullImagePath,
+      reference,
+      accept,
+      req,
+      res,
+    );
   }
 
   /**
@@ -101,8 +122,17 @@ export class DockerController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const fullImagePath = Array.isArray(imagePath) ? imagePath.join('/') : imagePath;
-    return this.handleManifest('HEAD', fullImagePath, reference, accept, req, res);
+    const fullImagePath = Array.isArray(imagePath)
+      ? imagePath.join('/')
+      : imagePath;
+    return this.handleManifest(
+      'HEAD',
+      fullImagePath,
+      reference,
+      accept,
+      req,
+      res,
+    );
   }
 
   /**
@@ -116,7 +146,9 @@ export class DockerController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const fullImagePath = Array.isArray(imagePath) ? imagePath.join('/') : imagePath;
+    const fullImagePath = Array.isArray(imagePath)
+      ? imagePath.join('/')
+      : imagePath;
     return this.handleBlob('GET', fullImagePath, digest, req, res);
   }
 
@@ -131,7 +163,9 @@ export class DockerController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const fullImagePath = Array.isArray(imagePath) ? imagePath.join('/') : imagePath;
+    const fullImagePath = Array.isArray(imagePath)
+      ? imagePath.join('/')
+      : imagePath;
     return this.handleBlob('HEAD', fullImagePath, digest, req, res);
   }
 
@@ -160,16 +194,27 @@ export class DockerController {
       // For Docker Hub, prepend 'library/' for official images
       const upstreamName = this.normalizeImageName(name);
 
-      // Check cache first
+      // Check cache first - try group lookup if enabled
       const artifactKey = `${name}:manifest:${reference}`;
-      const cached = await this.artifactService.getArtifact(
-        this.repositoryId,
-        artifactKey,
-        reference,
-      );
+
+      let cached = await this.tryGroupLookup(artifactKey, reference);
+
+      if (!cached && this.repositoryId) {
+        // Fallback to direct repository lookup (backward compatibility)
+        const directCached = await this.artifactService.getArtifact(
+          this.repositoryId,
+          artifactKey,
+          reference,
+        );
+        if (directCached) {
+          cached = { ...directCached, repositoryName: 'docker-proxy' };
+        }
+      }
 
       if (cached) {
-        this.logger.debug(`Cache HIT: manifest ${name}:${reference}`);
+        this.logger.debug(
+          `Cache HIT: manifest ${name}:${reference} (from ${cached.repositoryName})`,
+        );
 
         res.setHeader(
           'Content-Type',
@@ -177,13 +222,14 @@ export class DockerController {
             'application/vnd.docker.distribution.manifest.v2+json',
         );
         res.setHeader('Content-Length', cached.artifact.size.toString());
-        
+
         // Ensure Docker-Content-Digest has sha256: prefix
         const digest = cached.artifact.checksum.startsWith('sha256:')
           ? cached.artifact.checksum
           : `sha256:${cached.artifact.checksum}`;
         res.setHeader('Docker-Content-Digest', digest);
         res.setHeader('X-Amargo-Cache', 'HIT');
+        res.setHeader('X-Amargo-Repository', cached.repositoryName);
 
         if (method === 'GET') {
           cached.stream.pipe(res);
@@ -193,26 +239,53 @@ export class DockerController {
         return;
       }
 
-      // Cache MISS - fetch from upstream
+      // Cache MISS - try fetching from upstream repositories in group
       this.logger.debug(`Cache MISS: manifest ${name}:${reference}`);
 
-      const token = await this.getDockerHubToken(upstreamName);
-      const upstreamUrl = `${this.upstreamUrl}/v2/${upstreamName}/manifests/${reference}`;
-
-      const headers: Record<string, string> = {
-        Accept:
-          accept ||
-          'application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json',
-      };
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const upstreamResponse = await fetch(upstreamUrl, {
+      // Try group upstream fetch (tries each proxy in priority order)
+      const groupFetch = await this.tryGroupUpstreamFetch(
+        name,
+        reference,
+        accept,
         method,
-        headers,
-      });
+      );
+
+      let upstreamResponse: any;
+      let fetchRepositoryId: string;
+      let fetchRepositoryName: string;
+
+      if (groupFetch) {
+        // Successfully fetched from one of the group's proxy repositories
+        upstreamResponse = groupFetch.response;
+        fetchRepositoryId = groupFetch.repositoryId;
+        fetchRepositoryName = groupFetch.repositoryName;
+      } else {
+        // Fallback to default docker-proxy behavior
+        this.logger.log(
+          `[UPSTREAM FETCH] Fallback to docker-proxy: ${upstreamName}:${reference}`,
+        );
+
+        const token = await this.getDockerHubToken(upstreamName);
+        const fallbackUrl = `${this.upstreamUrl}/v2/${upstreamName}/manifests/${reference}`;
+
+        const headers: Record<string, string> = {
+          Accept:
+            accept ||
+            'application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json',
+        };
+
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        upstreamResponse = await fetch(fallbackUrl, {
+          method,
+          headers,
+        });
+
+        fetchRepositoryId = this.repositoryId!;
+        fetchRepositoryName = 'docker-proxy';
+      }
 
       if (!upstreamResponse.ok) {
         if (upstreamResponse.status === 404) {
@@ -253,14 +326,12 @@ export class DockerController {
       }
 
       if (!upstreamResponse.body) {
-        throw new InternalServerErrorException(
-          'Upstream response has no body',
-        );
+        throw new InternalServerErrorException('Upstream response has no body');
       }
 
       // Stream manifest and cache it
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const nodeStream = Readable.fromWeb(upstreamResponse.body as any);
+      const nodeStream = Readable.fromWeb(upstreamResponse.body);
       const { PassThrough } = await import('stream');
       const clientStream = new PassThrough();
       const storageStream = new PassThrough();
@@ -268,10 +339,10 @@ export class DockerController {
       nodeStream.pipe(clientStream);
       nodeStream.pipe(storageStream);
 
-      // Cache manifest asynchronously
+      // Cache manifest asynchronously (use the repository that successfully fetched it)
       this.artifactService
         .storeArtifact({
-          repositoryId: this.repositoryId,
+          repositoryId: fetchRepositoryId,
           name: artifactKey,
           version: reference,
           stream: storageStream,
@@ -280,10 +351,13 @@ export class DockerController {
             type: 'manifest',
             imageName: name,
             digest: dockerDigest,
+            sourceRepository: fetchRepositoryName,
           },
         })
         .then(() => {
-          this.logger.log(`Cached manifest ${name}:${reference}`);
+          this.logger.log(
+            `Cached manifest ${name}:${reference} in ${fetchRepositoryName}`,
+          );
         })
         .catch((error) => {
           this.logger.error(
@@ -294,10 +368,7 @@ export class DockerController {
 
       clientStream.pipe(res);
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch manifest ${name}:${reference}`,
-        error,
-      );
+      this.logger.error(`Failed to fetch manifest ${name}:${reference}`, error);
       throw error;
     }
   }
@@ -323,24 +394,33 @@ export class DockerController {
 
       const upstreamName = this.normalizeImageName(name);
 
-      // Check cache
+      // Check cache - try group lookup if enabled
       const artifactKey = `${name}:blob:${digest}`;
-      const cached = await this.artifactService.getArtifact(
-        this.repositoryId,
-        artifactKey,
-        digest,
-      );
+
+      let cached = await this.tryGroupLookup(artifactKey, digest);
+
+      if (!cached && this.repositoryId) {
+        // Fallback to direct repository lookup (backward compatibility)
+        const directCached = await this.artifactService.getArtifact(
+          this.repositoryId,
+          artifactKey,
+          digest,
+        );
+        if (directCached) {
+          cached = { ...directCached, repositoryName: 'docker-proxy' };
+        }
+      }
 
       if (cached) {
-        this.logger.debug(`Cache HIT: blob ${digest}`);
-
-        res.setHeader(
-          'Content-Type',
-          'application/octet-stream',
+        this.logger.debug(
+          `Cache HIT: blob ${digest} (from ${cached.repositoryName})`,
         );
+
+        res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Content-Length', cached.artifact.size.toString());
         res.setHeader('Docker-Content-Digest', digest);
         res.setHeader('X-Amargo-Cache', 'HIT');
+        res.setHeader('X-Amargo-Repository', cached.repositoryName);
 
         if (method === 'GET') {
           cached.stream.pipe(res);
@@ -350,30 +430,54 @@ export class DockerController {
         return;
       }
 
-      // Cache MISS
+      // Cache MISS - try fetching from upstream repositories in group
       this.logger.debug(`Cache MISS: blob ${digest}`);
 
-      const token = await this.getDockerHubToken(upstreamName);
-      const upstreamUrl = `${this.upstreamUrl}/v2/${upstreamName}/blobs/${digest}`;
-
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const upstreamResponse = await fetch(upstreamUrl, {
+      // Try group upstream fetch for blobs
+      const groupFetch = await this.tryGroupUpstreamFetchBlob(
+        name,
+        digest,
         method,
-        headers,
-      });
+      );
+
+      let upstreamResponse: any;
+      let fetchRepositoryId: string;
+      let fetchRepositoryName: string;
+
+      if (groupFetch) {
+        // Successfully fetched from one of the group's proxy repositories
+        upstreamResponse = groupFetch.response;
+        fetchRepositoryId = groupFetch.repositoryId;
+        fetchRepositoryName = groupFetch.repositoryName;
+      } else {
+        // Fallback to default docker-proxy behavior
+        this.logger.log(
+          `[UPSTREAM FETCH] Fallback to docker-proxy for blob: ${digest}`,
+        );
+
+        const token = await this.getDockerHubToken(upstreamName);
+        const fallbackUrl = `${this.upstreamUrl}/v2/${upstreamName}/blobs/${digest}`;
+
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        upstreamResponse = await fetch(fallbackUrl, {
+          method,
+          headers,
+        });
+
+        fetchRepositoryId = this.repositoryId!;
+        fetchRepositoryName = 'docker-proxy';
+      }
 
       if (!upstreamResponse.ok) {
         if (upstreamResponse.status === 404) {
           throw new NotFoundException(`Blob not found: ${digest}`);
         }
         if (upstreamResponse.status === 401) {
-          throw new UnauthorizedException(
-            'Upstream authentication failed',
-          );
+          throw new UnauthorizedException('Upstream authentication failed');
         }
         throw new InternalServerErrorException(
           `Upstream returned status ${upstreamResponse.status}`,
@@ -396,14 +500,12 @@ export class DockerController {
       }
 
       if (!upstreamResponse.body) {
-        throw new InternalServerErrorException(
-          'Upstream response has no body',
-        );
+        throw new InternalServerErrorException('Upstream response has no body');
       }
 
       // Stream blob and cache it
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const nodeStream = Readable.fromWeb(upstreamResponse.body as any);
+      const nodeStream = Readable.fromWeb(upstreamResponse.body);
       const { PassThrough } = await import('stream');
       const clientStream = new PassThrough();
       const storageStream = new PassThrough();
@@ -411,10 +513,10 @@ export class DockerController {
       nodeStream.pipe(clientStream);
       nodeStream.pipe(storageStream);
 
-      // Cache blob asynchronously
+      // Cache blob asynchronously (use the repository that successfully fetched it)
       this.artifactService
         .storeArtifact({
-          repositoryId: this.repositoryId,
+          repositoryId: fetchRepositoryId,
           name: artifactKey,
           version: digest,
           stream: storageStream,
@@ -423,10 +525,11 @@ export class DockerController {
             type: 'blob',
             imageName: name,
             digest,
+            sourceRepository: fetchRepositoryName,
           },
         })
         .then(() => {
-          this.logger.log(`Cached blob ${digest}`);
+          this.logger.log(`Cached blob ${digest} in ${fetchRepositoryName}`);
         })
         .catch((error) => {
           this.logger.error(`Failed to cache blob ${digest}:`, error);
@@ -453,12 +556,277 @@ export class DockerController {
   }
 
   /**
+   * Try to get artifact from repository group members (priority order)
+   * Returns the first found artifact or null if none found
+   */
+  private async tryGroupLookup(
+    artifactKey: string,
+    version: string,
+  ): Promise<{
+    stream: Readable;
+    artifact: any;
+    repositoryName: string;
+  } | null> {
+    if (!this.dockerGroupId) {
+      return null;
+    }
+
+    // Get group members ordered by priority
+    const members = await this.prisma.repositoryGroupMember.findMany({
+      where: { groupId: this.dockerGroupId },
+      include: { repository: true },
+      orderBy: { priority: 'asc' },
+    });
+
+    this.logger.log(
+      `[GROUP LOOKUP] Checking ${members.length} repositories for: ${artifactKey}`,
+    );
+
+    // Try each member in priority order
+    for (const member of members) {
+      this.logger.log(
+        `[GROUP LOOKUP] → Trying repository: ${member.repository.name} (priority ${member.priority}, type: ${member.repository.type})`,
+      );
+
+      const cached = await this.artifactService.getArtifact(
+        member.repository.id,
+        artifactKey,
+        version,
+      );
+
+      if (cached) {
+        this.logger.log(
+          `[GROUP LOOKUP] ✓ FOUND in repository: ${member.repository.name}`,
+        );
+        return {
+          ...cached,
+          repositoryName: member.repository.name,
+        };
+      } else {
+        this.logger.log(
+          `[GROUP LOOKUP] ✗ NOT FOUND in repository: ${member.repository.name}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `[GROUP LOOKUP] Artifact not found in any repository: ${artifactKey}`,
+    );
+    return null;
+  }
+
+  /**
+   * Try to fetch from upstream repositories in the group (priority order)
+   * Returns the first successful fetch or null if all fail
+   */
+  private async tryGroupUpstreamFetch(
+    name: string,
+    reference: string,
+    accept: string | undefined,
+    method: 'GET' | 'HEAD' = 'GET',
+  ): Promise<{
+    response: Response;
+    repositoryId: string;
+    repositoryName: string;
+    upstreamUrl: string;
+  } | null> {
+    if (!this.dockerGroupId) {
+      return null;
+    }
+
+    // Get PROXY members from the group (ordered by priority)
+    const members = await this.prisma.repositoryGroupMember.findMany({
+      where: {
+        groupId: this.dockerGroupId,
+        repository: { type: 'PROXY' },
+      },
+      include: { repository: true },
+      orderBy: { priority: 'asc' },
+    });
+
+    const proxyMembers = members.filter(
+      (m) => m.repository.type === 'PROXY' && m.repository.upstreamUrl,
+    );
+
+    if (proxyMembers.length === 0) {
+      return null;
+    }
+
+    this.logger.log(
+      `[GROUP UPSTREAM] Trying ${proxyMembers.length} upstream repositories for: ${name}:${reference}`,
+    );
+
+    // Try each proxy in priority order
+    for (const member of proxyMembers) {
+      const upstream = member.repository.upstreamUrl!;
+      const repoName = member.repository.name;
+
+      this.logger.log(
+        `[GROUP UPSTREAM] → Trying upstream: ${repoName} (${upstream})`,
+      );
+
+      try {
+        // For Docker Hub, normalize image name
+        const upstreamName = upstream.includes('docker.io')
+          ? this.normalizeImageName(name)
+          : name;
+
+        // Get token if needed (only for Docker Hub)
+        let token: string | null = null;
+        if (upstream.includes('docker.io')) {
+          token = await this.getDockerHubToken(upstreamName);
+        }
+
+        const upstreamUrl = `${upstream}/v2/${upstreamName}/manifests/${reference}`;
+
+        const headers: Record<string, string> = {
+          Accept:
+            accept ||
+            'application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json',
+        };
+
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        const upstreamResponse = await fetch(upstreamUrl, {
+          method,
+          headers,
+        });
+
+        if (upstreamResponse.ok) {
+          this.logger.log(
+            `[GROUP UPSTREAM] ✓ SUCCESS from: ${repoName} (${upstream})`,
+          );
+          return {
+            response: upstreamResponse as any,
+            repositoryId: member.repository.id,
+            repositoryName: repoName,
+            upstreamUrl: upstream,
+          };
+        } else {
+          this.logger.log(
+            `[GROUP UPSTREAM] ✗ FAILED from: ${repoName} (status: ${upstreamResponse.status})`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[GROUP UPSTREAM] ✗ ERROR from: ${repoName} - ${error.message}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `[GROUP UPSTREAM] All upstream repositories failed for: ${name}:${reference}`,
+    );
+    return null;
+  }
+
+  /**
+   * Try to fetch blob from upstream repositories in the group (priority order)
+   */
+  private async tryGroupUpstreamFetchBlob(
+    name: string,
+    digest: string,
+    method: 'GET' | 'HEAD' = 'GET',
+  ): Promise<{
+    response: Response;
+    repositoryId: string;
+    repositoryName: string;
+    upstreamUrl: string;
+  } | null> {
+    if (!this.dockerGroupId) {
+      return null;
+    }
+
+    // Get PROXY members from the group (ordered by priority)
+    const members = await this.prisma.repositoryGroupMember.findMany({
+      where: {
+        groupId: this.dockerGroupId,
+        repository: { type: 'PROXY' },
+      },
+      include: { repository: true },
+      orderBy: { priority: 'asc' },
+    });
+
+    const proxyMembers = members.filter(
+      (m) => m.repository.type === 'PROXY' && m.repository.upstreamUrl,
+    );
+
+    if (proxyMembers.length === 0) {
+      return null;
+    }
+
+    this.logger.log(
+      `[GROUP UPSTREAM] Trying ${proxyMembers.length} upstream repositories for blob: ${digest}`,
+    );
+
+    // Try each proxy in priority order
+    for (const member of proxyMembers) {
+      const upstream = member.repository.upstreamUrl!;
+      const repoName = member.repository.name;
+
+      this.logger.log(
+        `[GROUP UPSTREAM] → Trying upstream: ${repoName} (${upstream})`,
+      );
+
+      try {
+        // For Docker Hub, normalize image name
+        const upstreamName = upstream.includes('docker.io')
+          ? this.normalizeImageName(name)
+          : name;
+
+        // Get token if needed (only for Docker Hub)
+        let token: string | null = null;
+        if (upstream.includes('docker.io')) {
+          token = await this.getDockerHubToken(upstreamName);
+        }
+
+        const upstreamUrl = `${upstream}/v2/${upstreamName}/blobs/${digest}`;
+
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        const upstreamResponse = await fetch(upstreamUrl, {
+          method,
+          headers,
+        });
+
+        if (upstreamResponse.ok) {
+          this.logger.log(
+            `[GROUP UPSTREAM] ✓ SUCCESS from: ${repoName} (${upstream})`,
+          );
+          return {
+            response: upstreamResponse as any,
+            repositoryId: member.repository.id,
+            repositoryName: repoName,
+            upstreamUrl: upstream,
+          };
+        } else {
+          this.logger.log(
+            `[GROUP UPSTREAM] ✗ FAILED from: ${repoName} (status: ${upstreamResponse.status})`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[GROUP UPSTREAM] ✗ ERROR from: ${repoName} - ${error.message}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `[GROUP UPSTREAM] All upstream repositories failed for blob: ${digest}`,
+    );
+    return null;
+  }
+
+  /**
    * Get Docker Hub authentication token
    * Required for pulling public images from Docker Hub
    */
-  private async getDockerHubToken(
-    imageName: string,
-  ): Promise<string | null> {
+  private async getDockerHubToken(imageName: string): Promise<string | null> {
     try {
       const authUrl = `https://auth.docker.io/token?service=registry.docker.io&scope=repository:${imageName}:pull`;
       const response = await fetch(authUrl);

@@ -34,26 +34,73 @@ storage:
       container: "${AZURE_CONTAINER}"
 
 repositories:
+  # NPM repository (proxy)
   npm:
-    type: "npm"
+    format: "npm"
+    type: "proxy"
     enabled: true
     upstream: "https://registry.npmjs.org"
     cacheTtl: 3600 # 1 hour
     path: "/npm"
-    
+  
+  # Docker proxy to Docker Hub
+  docker-proxy:
+    format: "docker"
+    type: "proxy"
+    enabled: true
+    upstream: "https://registry-1.docker.io"
+    cacheTtl: 1800 # 30 minutes
+    path: "/v2/docker-proxy"
+  
+  # Docker hosted repository (for private images)
+  docker-hosted:
+    format: "docker"
+    type: "hosted"
+    enabled: true
+    cacheTtl: 86400 # 24 hours
+    path: "/v2/docker-hosted"
+  
+  # Docker proxy to Nexus
+  docker-nexus:
+    format: "docker"
+    type: "proxy"
+    enabled: true
+    upstream: "https://nexus.itspty.com:5002"
+    cacheTtl: 1800 # 30 minutes
+    path: "/v2/docker-nexus"
+
+  # PyPI repository (proxy)
   pypi:
-    type: "pypi"  
+    format: "pypi"
+    type: "proxy"
     enabled: true
     upstream: "https://pypi.org"
     cacheTtl: 7200 # 2 hours
     path: "/pypi"
-    
+
+# Repository groups - combine multiple repositories
+groups:
+  # Docker group: combines hosted + proxy + nexus
   docker:
-    type: "docker"
+    format: "docker"
     enabled: true
-    upstream: "https://registry-1.docker.io"
-    cacheTtl: 1800 # 30 minutes
     path: "/v2"
+    members:
+      - name: "docker-hosted"
+        priority: 1  # Check hosted first
+      - name: "docker-nexus"
+        priority: 2  # Finally check Nexus proxy
+      - name: "docker-proxy"
+        priority: 3  # Then check Docker Hub proxy
+  
+  # NPM group (example for future expansion)
+  npm-public:
+    format: "npm"
+    enabled: true
+    path: "/npm-group"
+    members:
+      - name: "npm"
+        priority: 1
 
 cache:
   # Global cache settings

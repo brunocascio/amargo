@@ -14,8 +14,9 @@ model Repository {
   id            String   @id @default(cuid())
   name          String   @unique
   type          RepositoryType
+  format        RepositoryFormat // NPM, DOCKER, etc.
   description   String?
-  upstreamUrl   String?  // For pull-through cache
+  upstreamUrl   String?  // For pull-through cache (proxy repos)
   isProxyEnabled Boolean @default(false)
   cacheTtl      Int      @default(3600) // TTL in seconds, default 1 hour
   createdAt     DateTime @default(now())
@@ -23,8 +24,37 @@ model Repository {
 
   artifacts     Artifact[]
   storageConfig StorageConfig?
+  groupMembers  RepositoryGroupMember[]
 
   @@map("repositories")
+}
+
+model RepositoryGroup {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  format      RepositoryFormat // All members must have same format
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     RepositoryGroupMember[]
+
+  @@map("repository_groups")
+}
+
+model RepositoryGroupMember {
+  id             String   @id @default(cuid())
+  groupId        String
+  repositoryId   String
+  priority       Int      @default(0) // Lower number = higher priority
+  createdAt      DateTime @default(now())
+
+  group          RepositoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  repository     Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, repositoryId])
+  @@index([groupId, priority])
+  @@map("repository_group_members")
 }
 
 model Artifact {
@@ -92,6 +122,12 @@ model DownloadStats {
 }
 
 enum RepositoryType {
+  HOSTED   // Local/hosted repository
+  PROXY    // Pull-through cache to upstream
+  GROUP    // Group of repositories
+}
+
+enum RepositoryFormat {
   NPM
   PYPI
   DOCKER

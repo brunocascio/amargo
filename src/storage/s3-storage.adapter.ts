@@ -146,7 +146,9 @@ export class S3StorageAdapter implements IStorageAdapter {
         })
         .promise();
 
-      return (result.Contents || []).map((obj) => obj.Key || '').filter(Boolean);
+      return (result.Contents || [])
+        .map((obj) => obj.Key || '')
+        .filter(Boolean);
     } catch (error) {
       this.logger.error(`Failed to list objects with prefix ${prefix}:`, error);
       throw error;

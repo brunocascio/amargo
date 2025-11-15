@@ -10,6 +10,7 @@ import { NpmController } from './npm/npm.controller';
 import { DockerController } from './docker/docker.controller';
 import { CacheCleanupService } from './cache/cache-cleanup.service';
 import { HealthController } from './health/health.controller';
+import { RepositoryInitService } from './repository/repository-init.service';
 
 @Module({
   imports: [AmargoConfigModule],
@@ -26,6 +27,7 @@ import { HealthController } from './health/health.controller';
     StorageService,
     ArtifactService,
     CacheCleanupService,
+    RepositoryInitService,
   ],
 })
 export class AppModule {}
