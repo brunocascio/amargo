@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService as NestConfigService } from '@nestjs/config';
 import { load } from 'js-yaml';
 import { readFileSync } from 'fs';
@@ -64,17 +64,6 @@ export interface AmargoConfig {
   logging: {
     level: string;
     format: string;
-  };
-  admin: {
-    ui: {
-      enabled: boolean;
-      path: string;
-      title: string;
-    };
-    metrics: {
-      enabled: boolean;
-      path: string;
-    };
   };
 }
 
@@ -179,10 +168,6 @@ export class AmargoConfigService {
 
   getLogging() {
     return this.config.logging;
-  }
-
-  getAdmin() {
-    return this.config.admin;
   }
 
   getDatabaseUrl(): string {

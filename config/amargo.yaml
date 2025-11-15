@@ -115,13 +115,3 @@ cache:
 logging:
   level: "info"
   format: "json"
-  
-admin:
-  ui:
-    enabled: true
-    path: "/admin"
-    title: "Amargo - Artifact Repository Manager"
-    
-  metrics:
-    enabled: true
-    path: "/metrics"

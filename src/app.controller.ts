@@ -13,7 +13,6 @@ export class AppController {
       description: 'Universal Artifact Repository Manager',
       endpoints: {
         health: '/health',
-        admin: '/admin',
         npm: '/npm/:package',
         npmTarball: '/npm/:package/-/:filename',
         dockerV2: '/v2/',

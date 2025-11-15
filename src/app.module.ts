@@ -3,7 +3,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AmargoConfigModule } from './config/config.module';
 import { PrismaService } from './database/prisma.service';
-import { AdminController } from './admin/admin.controller';
 import { StorageService } from './storage/storage.service';
 import { ArtifactService } from './artifact/artifact.service';
 import { NpmController } from './npm/npm.controller';
@@ -16,7 +15,6 @@ import { RepositoryInitService } from './repository/repository-init.service';
   imports: [AmargoConfigModule],
   controllers: [
     AppController,
-    AdminController,
     NpmController,
     DockerController,
     HealthController,
