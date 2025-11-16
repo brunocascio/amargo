@@ -65,7 +65,7 @@ repositories:
     format: "docker"
     type: "proxy"
     enabled: true
-    upstream: "https://nexus.itspty.com:5002"
+    upstream: "https://nexus.example.com:5000"
     cacheTtl: 1800 # 30 minutes
     path: "/v2/docker-nexus"
 
