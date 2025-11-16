@@ -9,7 +9,7 @@ export class AppController {
   getHello() {
     return {
       name: 'Amargo',
-      version: '0.0.1',
+      version: '0.1.0',
       description: 'Universal Artifact Repository Manager',
       endpoints: {
         health: '/health',
@@ -19,7 +19,6 @@ export class AppController {
         dockerManifest: '/v2/:name/manifests/:reference',
         dockerBlob: '/v2/:name/blobs/:digest',
       },
-      documentation: 'See AMARGO_README.md and QUICKSTART.md',
     };
   }
 }
