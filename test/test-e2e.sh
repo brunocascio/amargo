@@ -19,7 +19,7 @@ echo -e "${YELLOW}Step 1: Testing NPM package installation...${NC}"
 
 # Assuming a test package exists, try to install it
 # You can replace this with an actual package name that exists in your registry
-TEST_NPM_PACKAGE="express"
+TEST_NPM_PACKAGE="express@3"
 
 echo "  Testing NPM install..."
 INSTALL_DIR=$(mktemp -d)
@@ -43,10 +43,10 @@ echo ""
 echo -e "${YELLOW}Step 2: Testing PyPI package installation...${NC}"
 
 # Assuming a test package exists, try to install it
-TEST_PYPI_PACKAGE="requests"
+TEST_PYPI_PACKAGE="django"
 
 echo "  Testing PyPI install..."
-pip install --index-url "${AMARGO_URL}/simple" --trusted-host localhost "$TEST_PYPI_PACKAGE" 2>/dev/null || {
+pip install --index-url "${AMARGO_URL}/pypi/simple" --trusted-host localhost "$TEST_PYPI_PACKAGE" 2>/dev/null || {
     echo -e "${YELLOW}  ⚠ No PyPI test package found (expected for fresh install)${NC}"
 }
 
