@@ -3,7 +3,6 @@ import { PrismaService } from '../database/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { Readable } from 'stream';
 import { createHash } from 'crypto';
-import { RepositoryType } from '@prisma/client';
 
 export interface StoreArtifactOptions {
   repositoryId: string;

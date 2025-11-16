@@ -58,8 +58,8 @@ I've successfully implemented a full NPM pull-through cache proxy for Amargo. He
 14. **`src/database/prisma.service.ts`** - Prisma client wrapper
 
 ### Docker & Infrastructure
-15. **`docker-compose.yml`** - Infrastructure services (PostgreSQL, MinIO, Redis)
-16. **`docker-compose.dev.yml`** - Development stack with app container
+15. **`compose.yml`** - Infrastructure services (PostgreSQL, MinIO)
+16. **`compose.yml`** - Development stack with app container
 17. **`Dockerfile`** - Production multi-stage build
 18. **`Dockerfile.dev`** - Development build
 19. **`scripts/init-db.sql`** - Database initialization

@@ -38,7 +38,7 @@ npm install
 cp .env.example .env
 ```
 
-3. **Start infrastructure** (PostgreSQL + MinIO + Redis):
+3. **Start infrastructure** (PostgreSQL + MinIO):
 ```bash
 docker compose up -d
 ```

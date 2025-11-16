@@ -18,7 +18,7 @@ cp .env.example .env
 
 ### 2. Start Infrastructure
 ```bash
-# Start PostgreSQL + MinIO + Redis
+# Start PostgreSQL + MinIO
 docker compose up -d
 
 # Verify services are running
@@ -28,7 +28,6 @@ docker compose ps
 Expected output:
 - ✅ postgres (healthy)
 - ✅ minio (healthy)
-- ✅ redis (healthy)
 - ✅ minio-setup (completed)
 
 ### 3. Database Setup

@@ -17,8 +17,6 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     command: npm run start:dev
 
   postgres:
@@ -70,22 +68,6 @@ services:
       exit 0;
       "
 
-  # Redis for caching and session management (optional but recommended)
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
 volumes:
   postgres_data:
   minio_data:
-  redis_data:
