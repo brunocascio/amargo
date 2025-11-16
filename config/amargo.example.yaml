@@ -52,14 +52,6 @@ repositories:
     cacheTtl: 1800 # 30 minutes
     path: "/v2/docker-proxy"
   
-  # Docker hosted repository (for private images)
-  docker-hosted:
-    format: "docker"
-    type: "hosted"
-    enabled: true
-    cacheTtl: 86400 # 24 hours
-    path: "/v2/docker-hosted"
-  
   # Docker proxy to Nexus
   docker-nexus:
     format: "docker"
@@ -86,12 +78,10 @@ groups:
     enabled: true
     path: "/v2"
     members:
-      - name: "docker-hosted"
-        priority: 1  # Check hosted first
       - name: "docker-nexus"
-        priority: 2  # Finally check Nexus proxy
+        priority: 1  # Finally check Nexus proxy
       - name: "docker-proxy"
-        priority: 3  # Then check Docker Hub proxy
+        priority: 2  # Then check Docker Hub proxy
   
   # NPM group (example for future expansion)
   npm-public:
@@ -101,6 +91,15 @@ groups:
     members:
       - name: "npm"
         priority: 1
+
+  # PyPI group: combines multiple PyPI proxies
+  pypi:
+    format: "pypi"
+    enabled: true
+    path: "/pypi"
+    members:
+      - name: "pypi"
+        priority: 1  # Check public PyPI first
 
 cache:
   # Global cache settings
