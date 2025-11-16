@@ -2,7 +2,6 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile.dev
       target: development
     restart: unless-stopped
     ports:
