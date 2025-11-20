@@ -1,98 +1,350 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Amargo
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+**Universal Artifact Repository Manager with Pull-Through Cache**
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Amargo is an open-source, scalable artifact repository manager that supports multiple package ecosystems (npm, PyPI, Docker, Maven, NuGet, Go) with intelligent pull-through caching. Built for performance and flexibility, it uses object storage for artifacts and provides a clean admin UI.
 
-## Description
+## Features
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- 🚀 **Pull-Through Cache**: On-demand caching with configurable TTL at repository and artifact levels
+- 📦 **Multi-Registry Support**: npm, PyPI, Docker, Maven, NuGet, Go modules
+- ☁️ **Object Storage**: Multiple S3-compatible providers (MinIO, AWS S3, GCS, Azure Blob)
+- 🎯 **No Size Limits**: Unlimited artifact storage
+- 🔄 **Horizontal Scaling**: Designed for distributed deployments
+- 🐳 **Docker Ready**: Complete Docker Compose setup for local development
+- 📈 **Download Analytics**: Track package downloads and usage statistics
+- 🎨 **HTTP Cache Headers**: CDN-friendly with proper ETag, Cache-Control headers
+- 📄 **MIT Licensed**: Free and open source
 
-## Project setup
+## Quick Start
 
+### Prerequisites
+
+- Node.js 20+
+- Docker & Docker Compose
+- PostgreSQL 16 (provided via Docker)
+- MinIO or S3-compatible storage (MinIO provided via Docker)
+
+### Local Setup
+
+1. **Clone and install dependencies**:
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
-
+2. **Copy environment file**:
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
 ```
 
-## Run tests
-
+3. **Start infrastructure** (PostgreSQL + MinIO):
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+docker compose up -d
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+4. **Generate Prisma client and run migrations**:
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npx prisma generate
+npx prisma migrate dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+5. **Start the development server**:
+```bash
+npm run start:dev
+```
 
-## Resources
+6. **Access the application**:
+- **API**: http://localhost:3000
+- **Health Check**: http://localhost:3000/health
+- **MinIO Console**: http://localhost:9001 (amargo / amargo123)
 
-Check out a few resources that may come in handy when working with NestJS:
+## Configuration
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Configuration is managed via `config/amargo.yaml`. You can customize:
 
-## Support
+### Server Settings
+```yaml
+server:
+  port: 3000
+  host: "0.0.0.0"
+  cache:
+    enabled: true
+    maxAge: 3600
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Storage Providers
+```yaml
+storage:
+  default: "s3"
+  providers:
+    s3:
+      endpoint: "${S3_ENDPOINT}"
+      accessKey: "${S3_ACCESS_KEY}"
+      secretKey: "${S3_SECRET_KEY}"
+      bucket: "${S3_BUCKET}"
+      region: "${S3_REGION:-us-east-1}"
+```
 
-## Stay in touch
+Supported storage backends:
+- **MinIO**: S3-compatible, self-hosted (default for development)
+- **AWS S3**: Amazon S3
+- **GCS**: Google Cloud Storage
+- **Azure Blob**: Microsoft Azure Blob Storage
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Repository Configuration
+```yaml
+repositories:
+  npm:
+    format: "npm"
+    type: "proxy"
+    enabled: true
+    upstream: "https://registry.npmjs.org"
+    cacheTtl: 3600  # 1 hour
+    path: "/npm"
+```
+
+## Proxy Configuration
+
+### NPM Proxy
+
+Configure your npm client to use Amargo:
+
+```bash
+# Set registry globally
+npm config set registry http://localhost:3000/npm
+
+# Or use per-project (.npmrc)
+registry=http://localhost:3000/npm
+
+# Or use per-command
+npm install express --registry http://localhost:3000/npm
+```
+
+### PyPI Proxy
+
+Configure pip to use Amargo:
+
+**Global configuration** (`~/.pip/pip.conf` on Linux/macOS or `%APPDATA%\pip\pip.ini` on Windows):
+```ini
+[global]
+index-url = http://localhost:3000/pypi/simple/
+```
+
+**Per-project** (`requirements.txt`):
+```
+--index-url http://localhost:3000/pypi/simple/
+requests==2.28.1
+django>=4.2.0
+```
+
+**With Poetry** (`pyproject.toml`):
+```toml
+[[tool.poetry.source]]
+name = "amargo"
+url = "http://localhost:3000/pypi/simple/"
+priority = "primary"
+```
+
+### Docker Proxy
+
+Configure Docker daemon to use Amargo as a registry mirror:
+
+**Edit `/etc/docker/daemon.json` (or `~/.docker/daemon.json` on macOS/Windows):**
+```json
+{
+  "registry-mirrors": ["http://localhost:3000"],
+  "insecure-registries": ["localhost:3000"]
+}
+```
+
+Then restart Docker and pull images:
+```bash
+docker pull nginx:alpine
+```
+
+### Go Modules Proxy
+
+Configure Go to use Amargo:
+
+```bash
+# Set GOPROXY environment variable
+export GOPROXY=http://localhost:3000/go
+
+# Or use per-project
+go env -w GOPROXY=http://localhost:3000/go
+```
+
+### Maven Proxy
+
+Configure Maven in `~/.m2/settings.xml`:
+
+```xml
+<settings>
+  <mirrors>
+    <mirror>
+      <id>amargo</id>
+      <mirrorOf>central</mirrorOf>
+      <url>http://localhost:3000/maven</url>
+    </mirror>
+  </mirrors>
+</settings>
+```
+
+### NuGet Proxy
+
+Configure NuGet to use Amargo:
+
+```bash
+# Add source
+dotnet nuget add source http://localhost:3000/nuget -n amargo
+
+# Or in nuget.config
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <packageSources>
+    <add key="amargo" value="http://localhost:3000/nuget" />
+  </packageSources>
+</configuration>
+```
+
+## Architecture
+
+```
+┌─────────────┐
+│   Clients   │
+│(npm/pip/etc)│
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────────────┐
+│         Amargo (NestJS)             │
+│  ┌──────────┐      ┌─────────────┐ │
+│  │   npm    │      │    PyPI     │ │
+│  │Controller│ ...  │  Controller │ │
+│  └────┬─────┘      └──────┬──────┘ │
+│       │                   │         │
+│       ▼                   ▼         │
+│  ┌────────────────────────────┐    │
+│  │    Artifact Service        │    │
+│  │  (Metadata + Streaming)    │    │
+│  └────────┬───────────────────┘    │
+│           │                         │
+│           ▼                         │
+│  ┌────────────────┐  ┌──────────┐  │
+│  │ Storage Service│  │  Prisma  │  │
+│  │  (S3/MinIO)    │  │   (PG)   │  │
+│  └────────┬───────┘  └────┬─────┘  │
+└───────────┼─────────────────┼───────┘
+            │                 │
+            ▼                 ▼
+     ┌───────────┐     ┌──────────┐
+     │   MinIO   │     │PostgreSQL│
+     │ (Objects) │     │(Metadata)│
+     └───────────┘     └──────────┘
+```
+
+## Development
+
+### Running Tests
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+### Database Management
+
+```bash
+# Create migration
+npx prisma migrate dev --name migration_name
+
+# Apply migrations
+npx prisma migrate deploy
+
+# Open Prisma Studio
+npx prisma studio
+```
+
+### Docker Development
+
+Run the entire stack in Docker:
+
+```bash
+docker compose up --build
+```
+
+## Cache Strategy
+
+- **Repository-level TTL**: Default expiration time from `config/amargo.yaml`
+- **Artifact-level TTL**: Override per-artifact (stored in database)
+- **Cleanup Job**: Runs periodically to remove expired artifacts
+- **No Size Limits**: Store as much as your object storage allows
+
+### HTTP Cache Headers
+
+Amargo sets appropriate cache headers:
+
+- **Immutable artifacts**: `Cache-Control: public, max-age=31536000, immutable`
+- **Metadata**: `Cache-Control: public, max-age=300`
+- **ETags**: SHA256 checksum of artifacts
+- **X-Amargo-Cache**: HIT or MISS header for debugging
+
+## Production Deployment
+
+1. Build the application:
+```bash
+npm run build
+```
+
+2. Build production Docker image:
+```bash
+docker build -t amargo:latest .
+```
+
+3. Configure environment variables for production storage (S3, GCS, etc.)
+
+4. Run with production compose:
+```bash
+docker compose up -d
+```
+
+## Troubleshooting
+
+### Docker services not starting
+```bash
+# Check Docker is running
+docker info
+
+# Check logs
+docker compose logs postgres
+docker compose logs minio
+```
+
+### Prisma migration fails
+```bash
+# Reset database (WARNING: deletes all data)
+npx prisma migrate reset
+
+# Then run migrations again
+npx prisma migrate dev
+```
+
+### Proxy not working
+Check the proxy configuration in your client (npm, pip, docker, etc.) and ensure Amargo is running on the expected port.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Built With
+
+- [NestJS](https://nestjs.com/) - Progressive Node.js framework
+- [Prisma](https://www.prisma.io/) - Next-generation ORM
+- [MinIO](https://min.io/) - High-performance object storage
+- [PostgreSQL](https://www.postgresql.org/) - Advanced open source database
