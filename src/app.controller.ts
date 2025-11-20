@@ -13,11 +13,9 @@ export class AppController {
       description: 'Universal Artifact Repository Manager',
       endpoints: {
         health: '/health',
-        npm: '/npm/:package',
-        npmTarball: '/npm/:package/-/:filename',
-        dockerV2: '/v2/',
-        dockerManifest: '/v2/:name/manifests/:reference',
-        dockerBlob: '/v2/:name/blobs/:digest',
+        npm: '/npm/',
+        docker: '/v2/',
+        pypi: '/pypi/',
       },
     };
   }

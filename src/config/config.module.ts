@@ -6,7 +6,7 @@ import { AmargoConfigService } from './amargo-config.service';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', '.env.example'],
+      envFilePath: ['.env'],
     }),
   ],
   providers: [AmargoConfigService],
