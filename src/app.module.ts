@@ -10,6 +10,7 @@ import { DockerController } from './docker/docker.controller';
 import { PypiController } from './pypi/pypi.controller';
 import { GoController } from './go/go.controller';
 import { MavenController } from './maven/maven.controller';
+import { NuGetController } from './nuget/nuget.controller';
 import { CacheCleanupService } from './cache/cache-cleanup.service';
 import { HealthController } from './health/health.controller';
 import { RepositoryInitService } from './repository/repository-init.service';
@@ -23,6 +24,7 @@ import { RepositoryInitService } from './repository/repository-init.service';
     PypiController,
     GoController,
     MavenController,
+    NuGetController,
     HealthController,
   ],
   providers: [

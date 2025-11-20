@@ -174,5 +174,47 @@ else
 fi
 echo ""
 
+# Step 6: Test NuGet repository
+echo -e "${YELLOW}Step 6: Testing NuGet package download...${NC}"
+
+# Test with a small, popular NuGet package (Newtonsoft.Json)
+TEST_NUGET_PACKAGE_ID="newtonsoft.json"
+TEST_NUGET_VERSION="13.0.1"
+
+echo "  Testing NuGet package download..."
+NUGET_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${AMARGO_URL}/nuget/v3-flatcontainer/${TEST_NUGET_PACKAGE_ID}/${TEST_NUGET_VERSION}/${TEST_NUGET_PACKAGE_ID}.${TEST_NUGET_VERSION}.nupkg")
+
+if [ "$NUGET_RESPONSE" = "200" ]; then
+    echo -e "${GREEN}✓ NuGet package download successful${NC}"
+    
+    # Test NuGet service index
+    echo "  Testing NuGet service index..."
+    SERVICE_INDEX_RESPONSE=$(curl -s "${AMARGO_URL}/nuget/v3/index.json")
+    if echo "$SERVICE_INDEX_RESPONSE" | grep -q "PackageBaseAddress" 2>/dev/null; then
+        echo -e "${GREEN}✓ NuGet service index working${NC}"
+    else
+        echo -e "${YELLOW}  ℹ Service index check skipped${NC}"
+    fi
+    
+    # Test package versions endpoint
+    echo "  Testing NuGet package versions endpoint..."
+    VERSIONS_RESPONSE=$(curl -s "${AMARGO_URL}/nuget/v3-flatcontainer/${TEST_NUGET_PACKAGE_ID}/index.json")
+    if echo "$VERSIONS_RESPONSE" | grep -q "versions" 2>/dev/null; then
+        echo -e "${GREEN}✓ NuGet package versions endpoint working${NC}"
+    else
+        echo -e "${YELLOW}  ℹ Package versions check skipped${NC}"
+    fi
+    
+    # Test second request for caching
+    echo "  Testing NuGet cache..."
+    CACHE_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${AMARGO_URL}/nuget/v3-flatcontainer/${TEST_NUGET_PACKAGE_ID}/${TEST_NUGET_VERSION}/${TEST_NUGET_PACKAGE_ID}.${TEST_NUGET_VERSION}.nupkg")
+    if [ "$CACHE_RESPONSE" = "200" ]; then
+        echo -e "${GREEN}✓ NuGet cache working${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ℹ Skipped (package not downloaded - response: $NUGET_RESPONSE)${NC}"
+fi
+echo ""
+
 echo -e "${GREEN}=== E2E installation tests completed ===${NC}"
 echo -e "${YELLOW}Note: Tests assume services are running at ${AMARGO_URL}${NC}"

@@ -88,6 +88,15 @@ repositories:
     cacheTtl: 86400 # 24 hours - Maven artifacts are immutable
     path: "/maven"
 
+  # NuGet repository
+  nuget:
+    format: "nuget"
+    type: "proxy"
+    enabled: true
+    upstream: "https://api.nuget.org"
+    cacheTtl: 86400 # 24 hours - NuGet packages are immutable
+    path: "/nuget"
+
 # Repository groups - combine multiple repositories
 groups:
   # Docker group: combines hosted + proxy + nexus
@@ -136,6 +145,15 @@ groups:
     members:
       - name: "maven"
         priority: 1  # Check Maven Central first
+
+  # NuGet group: combines multiple NuGet proxies
+  nuget:
+    format: "nuget"
+    enabled: true
+    path: "/nuget"
+    members:
+      - name: "nuget"
+        priority: 1  # Check NuGet.org first
 
 cache:
   # Global cache settings

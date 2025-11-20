@@ -18,6 +18,7 @@ export class AppController {
         pypi: '/pypi/',
         go: '/go/',
         maven: '/maven/',
+        nuget: '/nuget/',
       },
     };
   }
