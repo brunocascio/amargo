@@ -687,6 +687,15 @@ export class DockerController {
 
         if (token) {
           headers.Authorization = `Bearer ${token}`;
+        } else if (
+          member.repository.upstreamUsername &&
+          member.repository.upstreamPassword
+        ) {
+          // Use Basic Auth for authenticated upstreams (e.g., Nexus)
+          const credentials = Buffer.from(
+            `${member.repository.upstreamUsername}:${member.repository.upstreamPassword}`,
+          ).toString('base64');
+          headers.Authorization = `Basic ${credentials}`;
         }
 
         const upstreamResponse = await fetch(upstreamUrl, {
@@ -710,8 +719,9 @@ export class DockerController {
           );
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `[GROUP UPSTREAM] ✗ ERROR from: ${repoName} - ${error.message}`,
+          `[GROUP UPSTREAM] ✗ ERROR from: ${repoName} - ${errorMessage}`,
         );
       }
     }
@@ -787,6 +797,15 @@ export class DockerController {
         const headers: Record<string, string> = {};
         if (token) {
           headers.Authorization = `Bearer ${token}`;
+        } else if (
+          member.repository.upstreamUsername &&
+          member.repository.upstreamPassword
+        ) {
+          // Use Basic Auth for authenticated upstreams (e.g., Nexus)
+          const credentials = Buffer.from(
+            `${member.repository.upstreamUsername}:${member.repository.upstreamPassword}`,
+          ).toString('base64');
+          headers.Authorization = `Basic ${credentials}`;
         }
 
         const upstreamResponse = await fetch(upstreamUrl, {
@@ -810,8 +829,9 @@ export class DockerController {
           );
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.warn(
-          `[GROUP UPSTREAM] ✗ ERROR from: ${repoName} - ${error.message}`,
+          `[GROUP UPSTREAM] ✗ ERROR from: ${repoName} - ${errorMessage}`,
         );
       }
     }

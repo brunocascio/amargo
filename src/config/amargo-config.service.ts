@@ -22,6 +22,8 @@ export interface RepositoryConfig {
   type: 'hosted' | 'proxy' | 'group';
   enabled: boolean;
   upstream?: string;
+  upstreamUsername?: string;
+  upstreamPassword?: string;
   cacheTtl: number;
   path: string;
 }

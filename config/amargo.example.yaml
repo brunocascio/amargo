@@ -58,6 +58,8 @@ repositories:
     type: "proxy"
     enabled: true
     upstream: "https://nexus.example.com:5000"
+    upstreamUsername: "${NEXUS_USERNAME}"  # Optional: Username for authenticated upstream
+    upstreamPassword: "${NEXUS_PASSWORD}"  # Optional: Password for authenticated upstream
     cacheTtl: 1800 # 30 minutes
     path: "/v2/docker-nexus"
 

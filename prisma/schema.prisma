@@ -17,6 +17,8 @@ model Repository {
   format        RepositoryFormat // NPM, DOCKER, etc.
   description   String?
   upstreamUrl   String?  // For pull-through cache (proxy repos)
+  upstreamUsername String?  // Username for authenticated upstream
+  upstreamPassword String?  // Password for authenticated upstream
   isProxyEnabled Boolean @default(false)
   cacheTtl      Int      @default(3600) // TTL in seconds, default 1 hour
   createdAt     DateTime @default(now())
