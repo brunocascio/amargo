@@ -77,6 +77,7 @@ model Artifact {
   @@unique([repositoryId, name, version])
   @@index([repositoryId, name])
   @@index([lastAccessed])
+  @@index([name, version])
   @@map("artifacts")
 }
 
@@ -104,6 +105,7 @@ model CacheEntry {
 
   @@index([expiresAt])
   @@index([repositoryId])
+  @@index([repositoryId, expiresAt])
   @@map("cache_entries")
 }
 

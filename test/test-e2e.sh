@@ -19,7 +19,7 @@ echo -e "${YELLOW}Step 1: Testing NPM package installation...${NC}"
 
 # Assuming a test package exists, try to install it
 # You can replace this with an actual package name that exists in your registry
-TEST_NPM_PACKAGE="express@3"
+TEST_NPM_PACKAGE="express@latest"
 
 echo "  Testing NPM install..."
 INSTALL_DIR=$(mktemp -d)
