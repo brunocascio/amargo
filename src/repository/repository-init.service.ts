@@ -231,6 +231,8 @@ export class RepositoryInitService implements OnModuleInit {
         return RepositoryFormat.PYPI;
       case 'docker':
         return RepositoryFormat.DOCKER;
+      case 'go':
+        return RepositoryFormat.GO;
       case 'maven':
         return RepositoryFormat.MAVEN;
       case 'nuget':

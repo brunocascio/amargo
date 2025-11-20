@@ -70,6 +70,15 @@ repositories:
     cacheTtl: 7200 # 2 hours
     path: "/pypi"
 
+  # Go module proxy
+  go:
+    format: "go"
+    type: "proxy"
+    enabled: true
+    upstream: "https://proxy.golang.org"
+    cacheTtl: 86400 # 24 hours - Go modules are immutable
+    path: "/go"
+
 # Repository groups - combine multiple repositories
 groups:
   # Docker group: combines hosted + proxy + nexus
@@ -100,6 +109,15 @@ groups:
     members:
       - name: "pypi"
         priority: 1  # Check public PyPI first
+
+  # Go group: combines multiple Go proxies
+  go:
+    format: "go"
+    enabled: true
+    path: "/go"
+    members:
+      - name: "go"
+        priority: 1  # Check public Go proxy first
 
 cache:
   # Global cache settings

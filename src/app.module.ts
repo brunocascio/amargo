@@ -8,6 +8,7 @@ import { ArtifactService } from './artifact/artifact.service';
 import { NpmController } from './npm/npm.controller';
 import { DockerController } from './docker/docker.controller';
 import { PypiController } from './pypi/pypi.controller';
+import { GoController } from './go/go.controller';
 import { CacheCleanupService } from './cache/cache-cleanup.service';
 import { HealthController } from './health/health.controller';
 import { RepositoryInitService } from './repository/repository-init.service';
@@ -19,6 +20,7 @@ import { RepositoryInitService } from './repository/repository-init.service';
     NpmController,
     DockerController,
     PypiController,
+    GoController,
     HealthController,
   ],
   providers: [

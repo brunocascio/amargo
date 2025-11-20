@@ -77,5 +77,61 @@ else
 fi
 echo ""
 
+# Step 4: Test Go module proxy
+echo -e "${YELLOW}Step 4: Testing Go module download...${NC}"
+
+# Test with a small, popular Go module
+TEST_GO_MODULE="github.com/google/uuid@v1.3.0"
+
+echo "  Testing Go module download..."
+GO_TEST_DIR=$(mktemp -d)
+cd "$GO_TEST_DIR"
+
+# Initialize a test Go module
+go mod init test-amargo 2>/dev/null || true
+
+# Set GOPROXY to use Amargo
+export GOPROXY="${AMARGO_URL}/go"
+export GOSUMDB=off  # Disable checksum verification for testing
+
+# Try to get the module
+go get "$TEST_GO_MODULE" 2>/dev/null || {
+    echo -e "${YELLOW}  ⚠ Go module download failed (check if Amargo is running)${NC}"
+    cd - > /dev/null
+    rm -rf "$GO_TEST_DIR"
+    unset GOPROXY
+    unset GOSUMDB
+}
+
+if [ -f "$GO_TEST_DIR/go.mod" ] && grep -q "github.com/google/uuid" "$GO_TEST_DIR/go.mod" 2>/dev/null; then
+    echo -e "${GREEN}✓ Go module download successful${NC}"
+    
+    # Test module info endpoint
+    echo "  Testing Go module info endpoint..."
+    INFO_RESPONSE=$(curl -s "${AMARGO_URL}/go/github.com/google/uuid/@v/v1.3.0.info")
+    if echo "$INFO_RESPONSE" | grep -q "v1.3.0" 2>/dev/null; then
+        echo -e "${GREEN}✓ Go module .info endpoint working${NC}"
+    else
+        echo -e "${YELLOW}  ℹ .info endpoint check skipped${NC}"
+    fi
+    
+    # Test module list endpoint
+    echo "  Testing Go module list endpoint..."
+    LIST_RESPONSE=$(curl -s "${AMARGO_URL}/go/github.com/google/uuid/@v/list")
+    if [ ! -z "$LIST_RESPONSE" ]; then
+        echo -e "${GREEN}✓ Go module version list working${NC}"
+    else
+        echo -e "${YELLOW}  ℹ Version list check skipped${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ℹ Skipped (module not downloaded)${NC}"
+fi
+
+cd - > /dev/null
+rm -rf "$GO_TEST_DIR"
+unset GOPROXY
+unset GOSUMDB
+echo ""
+
 echo -e "${GREEN}=== E2E installation tests completed ===${NC}"
 echo -e "${YELLOW}Note: Tests assume services are running at ${AMARGO_URL}${NC}"

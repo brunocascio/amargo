@@ -131,6 +131,7 @@ enum RepositoryFormat {
   NPM
   PYPI
   DOCKER
+  GO
   MAVEN
   NUGET
   GENERIC
