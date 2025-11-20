@@ -16,6 +16,8 @@ export class AppController {
         npm: '/npm/',
         docker: '/v2/',
         pypi: '/pypi/',
+        go: '/go/',
+        maven: '/maven/',
       },
     };
   }

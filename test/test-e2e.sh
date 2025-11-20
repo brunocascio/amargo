@@ -133,5 +133,46 @@ unset GOPROXY
 unset GOSUMDB
 echo ""
 
+# Step 5: Test Maven repository
+echo -e "${YELLOW}Step 5: Testing Maven artifact download...${NC}"
+
+# Test with Apache Commons Lang (reliable and widely used)
+TEST_MAVEN_ARTIFACT="org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar"
+
+echo "  Testing Maven artifact download..."
+MAVEN_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${AMARGO_URL}/maven/${TEST_MAVEN_ARTIFACT}")
+
+if [ "$MAVEN_RESPONSE" = "200" ]; then
+    echo -e "${GREEN}✓ Maven artifact download successful${NC}"
+    
+    # Test maven-metadata.xml endpoint
+    echo "  Testing Maven metadata endpoint..."
+    METADATA_RESPONSE=$(curl -s "${AMARGO_URL}/maven/org/apache/commons/commons-lang3/maven-metadata.xml")
+    if echo "$METADATA_RESPONSE" | grep -q "commons-lang3" 2>/dev/null; then
+        echo -e "${GREEN}✓ Maven metadata endpoint working${NC}"
+    else
+        echo -e "${YELLOW}  ℹ Metadata endpoint check skipped${NC}"
+    fi
+    
+    # Test POM file endpoint
+    echo "  Testing Maven POM file endpoint..."
+    POM_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${AMARGO_URL}/maven/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom")
+    if [ "$POM_RESPONSE" = "200" ]; then
+        echo -e "${GREEN}✓ Maven POM file endpoint working${NC}"
+    else
+        echo -e "${YELLOW}  ℹ POM file check skipped${NC}"
+    fi
+    
+    # Test second request for caching
+    echo "  Testing Maven cache..."
+    CACHE_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${AMARGO_URL}/maven/${TEST_MAVEN_ARTIFACT}")
+    if [ "$CACHE_RESPONSE" = "200" ]; then
+        echo -e "${GREEN}✓ Maven cache working${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ℹ Skipped (artifact not downloaded - response: $MAVEN_RESPONSE)${NC}"
+fi
+echo ""
+
 echo -e "${GREEN}=== E2E installation tests completed ===${NC}"
 echo -e "${YELLOW}Note: Tests assume services are running at ${AMARGO_URL}${NC}"

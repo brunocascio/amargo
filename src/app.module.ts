@@ -9,6 +9,7 @@ import { NpmController } from './npm/npm.controller';
 import { DockerController } from './docker/docker.controller';
 import { PypiController } from './pypi/pypi.controller';
 import { GoController } from './go/go.controller';
+import { MavenController } from './maven/maven.controller';
 import { CacheCleanupService } from './cache/cache-cleanup.service';
 import { HealthController } from './health/health.controller';
 import { RepositoryInitService } from './repository/repository-init.service';
@@ -21,6 +22,7 @@ import { RepositoryInitService } from './repository/repository-init.service';
     DockerController,
     PypiController,
     GoController,
+    MavenController,
     HealthController,
   ],
   providers: [

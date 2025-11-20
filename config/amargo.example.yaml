@@ -79,6 +79,15 @@ repositories:
     cacheTtl: 86400 # 24 hours - Go modules are immutable
     path: "/go"
 
+  # Maven repository
+  maven:
+    format: "maven"
+    type: "proxy"
+    enabled: true
+    upstream: "https://repo1.maven.org/maven2"
+    cacheTtl: 86400 # 24 hours - Maven artifacts are immutable
+    path: "/maven"
+
 # Repository groups - combine multiple repositories
 groups:
   # Docker group: combines hosted + proxy + nexus
@@ -118,6 +127,15 @@ groups:
     members:
       - name: "go"
         priority: 1  # Check public Go proxy first
+
+  # Maven group: combines multiple Maven proxies
+  maven:
+    format: "maven"
+    enabled: true
+    path: "/maven"
+    members:
+      - name: "maven"
+        priority: 1  # Check Maven Central first
 
 cache:
   # Global cache settings
